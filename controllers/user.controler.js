@@ -1,44 +1,65 @@
 const { response, request } = require('express')
+const bcrypt = require('bcryptjs');
+const User = require('../models/user')
 
-const usuariosGet = (req = request, res = response) => {
+const usuariosGet = async (req = request, res = response) => {
 
-    const { q, nombre = "no name", apiKey, page = 1, limit = 10 } = req.query;
+    const { limit = 5, from = 0 } = req.query;
+    const query = { state: true };
+
+    const [total, users] = await Promise.all([
+        User.countDocuments(query),
+        User.find(query)
+            .skip(Number(from))
+            .limit(Number(limit))
+    ])
 
     res.json({
-        message: 'Controlador get',
-        q,
-        nombre,
-        apiKey,
-        page,
-        limit
+        total,
+        users
     });
 }
 
-const usuariosPost = (req, res = response) => {
+const usuariosPost = async (req, res = response) => {
 
-    const { nombre, edad } = req.body;
+    const { name, email, password, role } = req.body;
+
+    const user = new User({ name, email, password, role });
+
+    const salt = bcrypt.genSaltSync();
+    user.password = bcrypt.hashSync(password, salt);
+
+    await user.save();
 
     res.json({
-        message: 'Controlador post',
-        nombre,
-        edad
+        user
     });
 }
 
-const usuariosPut = (req, res = response) => {
+const usuariosPut = async (req, res = response) => {
+
+    const id = req.params.id;
+    const { _id, password, google, email, ...rest } = req.body;
+
+    if (password) {
+        const salt = bcrypt.genSaltSync();
+        rest.password = bcrypt.hashSync(password, salt);
+    }
+
+    const user = await User.findByIdAndUpdate(id, rest);
+
+    res.json({
+        user
+    });
+}
+
+const usuariosDelete = async (req, res = response) => {
 
     const id = req.params.id;
 
-    res.json({
-        message: 'Controlador put',
-        id
-    });
-}
+    const user = await User.findByIdAndUpdate(id, { state: false });
 
-const usuariosDelete = (req, res = response) => {
-    res.json({
-        message: 'Controlador delete'
-    });
+    res.json(user);
 }
 
 const usuariosPatch = (req, res = response) => {
